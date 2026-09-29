@@ -19,6 +19,13 @@
     .npc-item.selected { border-color: #ffd700; background: #3a3a2a; }
     #interiorView { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); color: #fff; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
     .controls-hint { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; }
+
+    .quest-title { color: #ffd700; font-weight: bold; margin-bottom: 8px; }
+    .quest-description { font-size: 12px; color: #ddd; line-height: 1.6; margin-bottom: 10px; }
+    .quest-step { padding: 6px 8px; border-radius: 4px; margin-bottom: 6px; border-left: 3px solid transparent; font-size: 12px; }
+    .quest-step.completed { background: #183a2f; border-left-color: #41f4a3; color: #aefed6; }
+    .quest-step.active { background: #3b3520; border-left-color: #ffd700; color: #ffe78d; }
+    .quest-step.pending { background: #2a2a2a; border-left-color: #555; color: #aaa; }
   </style>
 </head>
 <body>
@@ -42,6 +49,13 @@
         <button id="fullscreenBtn">🖥️ 全螢幕</button>
       </div>
       <div>時間：<span id="timeDisplay">10:00</span></div>
+    </div>
+
+    <div class="panel-box">
+      <h3>📜 任務</h3>
+      <div id="questTitle" class="quest-title"></div>
+      <div id="questDescription" class="quest-description"></div>
+      <div id="questProgress"></div>
     </div>
 
     <div class="panel-box">
@@ -104,14 +118,30 @@
       mood: "普通", currentActivity: "探索中", currentLocation: "墨色街道"
     };
 
+    const QUESTS = {
+      motherBook: {
+        title: "尋找母親的藏書",
+        description: "林天墨得知母親生前收藏的一本絕版書可能藏在回聲森林附近的舊屋中。",
+        steps: [
+          "詢問王老闆",
+          "前往圖書館",
+          "探索回聲森林",
+          "找回藏書"
+        ],
+        currentStep: 0
+      }
+    };
+
     const NPCS = [
-      { id: "npc1", name: "李明", emoji: "👨‍🍳", x: 6 * TILE_SIZE, y: 8 * TILE_SIZE, currentActivity: "結帳中", relationshipLevel: 15, dialogue: "歡迎光臨！想找點什麼書？" },
-      { id: "npc2", name: "小雅", emoji: "👩‍🎓", x: 22 * TILE_SIZE, y: 8 * TILE_SIZE, currentActivity: "閱讀中", relationshipLevel: 10, dialogue: "這本古籍裡記載的故事太令人驚嘆了！" }
+      { id: "wang", name: "王老闆", emoji: "👨‍🍳", x: 9 * TILE_SIZE, y: 8 * TILE_SIZE, currentActivity: "結帳中", relationshipLevel: 15, dialogue: "天墨，你有空嗎？我聽說家裡曾經收藏過一本很特殊的古書。" },
+      { id: "shiyu", name: "陳詩雨", emoji: "👩‍🎓", x: 22 * TILE_SIZE, y: 8 * TILE_SIZE, currentActivity: "閱讀中", relationshipLevel: 10, dialogue: "我在圖書館看到了關於回聲森林的資料，若你要找母親的藏書，這可能有幫助。" },
+      { id: "xiaoli", name: "小李", emoji: "🧑‍💼", x: 18 * TILE_SIZE, y: 12 * TILE_SIZE, currentActivity: "整理書架", relationshipLevel: 12, dialogue: "我聽說山後的舊屋裡有不少被遺忘的書籍，或許妳可以去看看。" }
     ];
 
     const BUILDINGS = [
       { id: "bookstore", name: "墨色書坊", x: 4 * TILE_SIZE, y: 3 * TILE_SIZE, width: 6 * TILE_SIZE, height: 4 * TILE_SIZE, color: "#7a4b2a", description: "充滿墨香與古籍的獨立書店。" },
-      { id: "cafe", name: "時光咖啡", x: 20 * TILE_SIZE, y: 3 * TILE_SIZE, width: 6 * TILE_SIZE, height: 4 * TILE_SIZE, color: "#5c3a21", description: "適合靜心寫作與享用特調咖啡的小館。" }
+      { id: "cafe", name: "時光咖啡", x: 20 * TILE_SIZE, y: 3 * TILE_SIZE, width: 6 * TILE_SIZE, height: 4 * TILE_SIZE, color: "#5c3a21", description: "適合靜心寫作與享用特調咖啡的小館。" },
+      { id: "library", name: "圖書館", x: 10 * TILE_SIZE, y: 13 * TILE_SIZE, width: 6 * TILE_SIZE, height: 4 * TILE_SIZE, color: "#705b34", description: "知識與記憶沉睡的地方。" }
     ];
 
     const TREES = [
@@ -132,6 +162,7 @@
       generatePixelSprites();
       resizeCanvas();
       bindEventListeners();
+      updateQuestPanel();
       requestAnimationFrame(gameLoop);
       initUIUpdateLoop();
     }
@@ -320,6 +351,40 @@
       requestAnimationFrame(gameLoop);
     }
 
+    function updateQuestPanel() {
+      const quest = QUESTS.motherBook;
+      const titleEl = document.getElementById("questTitle");
+      const descEl = document.getElementById("questDescription");
+      const progressEl = document.getElementById("questProgress");
+
+      if (!titleEl || !descEl || !progressEl) return;
+
+      titleEl.textContent = quest.title;
+      descEl.textContent = quest.description;
+
+      progressEl.innerHTML = "";
+      quest.steps.forEach((step, index) => {
+        const item = document.createElement("div");
+        item.className = "quest-step " + (
+          index < quest.currentStep ? "completed" :
+          index === quest.currentStep ? "active" : "pending"
+        );
+        item.textContent = `${index + 1}. ${step}`;
+        progressEl.appendChild(item);
+      });
+    }
+
+    function advanceQuestStep() {
+      const quest = QUESTS.motherBook;
+      if (quest.currentStep < quest.steps.length - 1) {
+        quest.currentStep += 1;
+        updateQuestPanel();
+      } else {
+        quest.currentStep = quest.steps.length - 1;
+        updateQuestPanel();
+      }
+    }
+
     function selectNPC(npcId) {
       gameState.selectedNPC = npcId;
       document.querySelectorAll(".npc-item").forEach(i => i.classList.remove("selected"));
@@ -333,6 +398,22 @@
       const opt2 = document.getElementById("dialogueOption2");
       if (opt1) { opt1.textContent = "👋 打招呼"; opt1.style.display = "inline-block"; opt1.onclick = () => respondToDialogue("打招呼", npc); }
       if (opt2) { opt2.textContent = "🛍️ 推薦書籍"; opt2.style.display = "inline-block"; opt2.onclick = () => respondToDialogue("推薦書籍", npc); }
+
+      if (npc.id === "wang" && QUESTS.motherBook.currentStep === 0) {
+        const questText = "我聽說母親曾經收藏過一本神秘的書，可能藏在回聲森林附近的舊屋裡。你可以先去圖書館查一查。";
+        document.getElementById("dialogueContent").innerHTML = `<p><strong>${npc.emoji} ${npc.name}</strong>：${questText}</p>`;
+        advanceQuestStep();
+      }
+
+      if (npc.id === "shiyu" && QUESTS.motherBook.currentStep === 1) {
+        document.getElementById("dialogueContent").innerHTML = `<p><strong>${npc.emoji} ${npc.name}</strong>：我查到回聲森林附近曾有一處舊屋，去看看吧。</p>`;
+        advanceQuestStep();
+      }
+
+      if (npc.id === "xiaoli" && QUESTS.motherBook.currentStep === 2) {
+        document.getElementById("dialogueContent").innerHTML = `<p><strong>${npc.emoji} ${npc.name}</strong>：我在舊屋後方看到了一本封面發霉的書，這麼像你要找的那本！</p>`;
+        advanceQuestStep();
+      }
     }
 
     function respondToDialogue(response, npc) {
@@ -354,6 +435,14 @@
       document.getElementById("interiorContent").innerHTML = `<h2>${b.name}</h2><p style="margin-top:10px;">${b.description}</p>`;
       document.getElementById("interiorView").style.display = "flex";
       document.getElementById("exitInterior").onclick = () => { document.getElementById("interiorView").style.display = "none"; };
+
+      if (b.id === "library" && QUESTS.motherBook.currentStep === 1) {
+        advanceQuestStep();
+      }
+
+      if (b.id === "bookstore" && QUESTS.motherBook.currentStep === 2) {
+        advanceQuestStep();
+      }
     }
 
     function initUIUpdateLoop() {
