@@ -2,7 +2,7 @@
 let canvas, ctx;
 let gameState = {
   isPaused: false,
-  zoom: 1,
+  zoom: 1.5,
   cameraX: 0,
   cameraY: 0,
   selectedNPC: null,
@@ -16,8 +16,7 @@ function initGame() {
   ctx = canvas.getContext("2d");
 
   // 設置 Canvas 大小
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = canvas.parentElement.clientHeight;
+  resizeCanvas();
 
   // 綁定事件監聽
   bindEventListeners();
@@ -27,6 +26,13 @@ function initGame() {
 
   // 更新 UI
   updateUI();
+}
+
+// 重新調整 Canvas 大小
+function resizeCanvas() {
+  const gameArea = document.querySelector(".game-area");
+  canvas.width = gameArea.clientWidth - 520; // 扣除左右面板寬度
+  canvas.height = gameArea.clientHeight;
 }
 
 // 綁定事件監聽
@@ -45,20 +51,11 @@ function bindEventListeners() {
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
-      document.documentElement.requestFullscreen();
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log("全螢幕請求被拒絕:", err);
+      });
     }
   });
-
-  // NPC 列表點擊
-  document.addEventListener("click", (e) => {
-    if (e.target.closest(".npc-item")) {
-      const npcId = e.target.closest(".npc-item").dataset.npcId;
-      selectNPC(npcId);
-    }
-  });
-
-  // 關閉對話按鈕
-  document.getElementById("closeDialogue").addEventListener("click", closeDialogue);
 
   // 標籤頁切換
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -102,10 +99,10 @@ function bindEventListeners() {
   });
 
   // 視窗大小改變時重新調整 Canvas
-  window.addEventListener("resize", () => {
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = canvas.parentElement.clientHeight;
-  });
+  window.addEventListener("resize", resizeCanvas);
+
+  // 關閉對話按鈕
+  document.getElementById("closeDialogue").addEventListener("click", closeDialogue);
 }
 
 // 遊戲主循環
@@ -152,6 +149,12 @@ function drawTrees() {
     ctx.beginPath();
     ctx.arc(tree.x * 32 + 16, tree.y * 32 + 16, 12, 0, Math.PI * 2);
     ctx.fill();
+    
+    // 樹木陰影
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.arc(tree.x * 32 + 16, tree.y * 32 + 20, 10, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
@@ -178,12 +181,13 @@ function drawBuildings() {
 
     // 繪製建築名稱
     ctx.fillStyle = "#fff";
-    ctx.font = "12px Arial";
+    ctx.font = "bold 12px Arial";
     ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText(
       building.name,
       building.x * 32 + (building.width * 32) / 2,
-      building.y * 32 + (building.height * 32) / 2 + 5
+      building.y * 32 + (building.height * 32) / 2
     );
   }
 }
@@ -191,38 +195,42 @@ function drawBuildings() {
 // 繪製 NPC
 function drawNPCs() {
   for (let npc of NPCS) {
+    // 繪製 NPC 身體
     ctx.fillStyle = npc.color;
     ctx.fillRect(npc.x * 32 + 8, npc.y * 32 + 8, 16, 16);
 
-    // 繪製 NPC 名稱標籤
-    ctx.fillStyle = "#fff";
-    ctx.font = "11px Arial";
+    // NPC 名稱標籤
+    ctx.fillStyle = "#ffd700";
+    ctx.font = "bold 11px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(npc.name, npc.x * 32 + 16, npc.y * 32 - 5);
+    ctx.textBaseline = "bottom";
+    ctx.fillText(npc.name, npc.x * 32 + 16, npc.y * 32 - 2);
 
-    // 繪製當前活動
+    // 當前活動
     ctx.fillStyle = "#a0a0a0";
     ctx.font = "9px Arial";
-    ctx.fillText(npc.currentActivity, npc.x * 32 + 16, npc.y * 32 - 15);
+    ctx.fillText(npc.currentActivity, npc.x * 32 + 16, npc.y * 32 - 12);
   }
 }
 
 // 繪製玩家（主角）
 function drawPlayer() {
+  // 玩家身體
   ctx.fillStyle = PLAYER.color;
-  ctx.fillRect(PLAYER.x * 32 + 8, PLAYER.y * 32 + 8, 16, 16);
+  ctx.fillRect(PLAYER.x * 32 + 6, PLAYER.y * 32 + 6, 20, 20);
 
-  // 繪製光環效果
+  // 光環效果
   ctx.strokeStyle = "#ffd700";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(PLAYER.x * 32 + 16, PLAYER.y * 32 + 16, 12, 0, Math.PI * 2);
+  ctx.arc(PLAYER.x * 32 + 16, PLAYER.y * 32 + 16, 14, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 繪製名稱
+  // 玩家名稱
   ctx.fillStyle = "#ffd700";
   ctx.font = "bold 12px Arial";
   ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
   ctx.fillText(PLAYER.name, PLAYER.x * 32 + 16, PLAYER.y * 32 - 5);
 }
 
@@ -250,18 +258,17 @@ function startDialogue(npc) {
     <p><strong>${npc.name}</strong>：${npc.dialogue}</p>
   `;
 
-  // 顯示對話選項（可根據關係等級改變）
-  document.getElementById("dialogueOption1").textContent = "👋 打招呼";
-  document.getElementById("dialogueOption1").style.display = "inline-block";
-  document.getElementById("dialogueOption1").onclick = () => {
-    respondToDialogue("打招呼", npc);
-  };
+  // 顯示對話選項
+  const opt1 = document.getElementById("dialogueOption1");
+  const opt2 = document.getElementById("dialogueOption2");
 
-  document.getElementById("dialogueOption2").textContent = "🛍️ 推薦書籍";
-  document.getElementById("dialogueOption2").style.display = "inline-block";
-  document.getElementById("dialogueOption2").onclick = () => {
-    respondToDialogue("推薦書籍", npc);
-  };
+  opt1.textContent = "👋 打招呼";
+  opt1.style.display = "inline-block";
+  opt1.onclick = () => respondToDialogue("打招呼", npc);
+
+  opt2.textContent = "🛍️ 推薦書籍";
+  opt2.style.display = "inline-block";
+  opt2.onclick = () => respondToDialogue("推薦書籍", npc);
 }
 
 // 回應對話
@@ -333,31 +340,28 @@ function switchTab(tabName) {
 
 // 更新 UI
 function updateUI() {
-  // 更新時間
+  // 立即更新一次
+  updateTimeAndWeather();
+  updateNPCList();
+  updatePlayerStatus();
+
+  // 每秒更新一次
+  setInterval(() => {
+    updateTimeAndWeather();
+    updateNPCList();
+    updatePlayerStatus();
+  }, 1000);
+}
+
+// 更新時間和天氣
+function updateTimeAndWeather() {
   const now = WORLD_CONFIG.currentTime;
   const hours = String(now.getHours()).padStart(2, "0");
   const minutes = String(now.getMinutes()).padStart(2, "0");
   document.getElementById("timeDisplay").textContent = `${hours}:${minutes}`;
 
-  // 更新天氣
-  document.getElementById("weatherDisplay").textContent = "☀️ 晴天";
-
-  // 更新季節
-  document.getElementById("seasonDisplay").textContent = "🌸 春季";
-
-  // 更新 NPC 列表
-  updateNPCList();
-
-  // 更新玩家狀態
-  updatePlayerStatus();
-
-  // 每秒更新一次
-  setInterval(() => {
-    WORLD_CONFIG.currentTime.setSeconds(
-      WORLD_CONFIG.currentTime.getSeconds() + 1
-    );
-    updateUI();
-  }, 1000 / WORLD_CONFIG.timeScale);
+  // 每秒加 60 秒（時間加速）
+  WORLD_CONFIG.currentTime.setSeconds(WORLD_CONFIG.currentTime.getSeconds() + 60);
 }
 
 // 更新 NPC 列表
@@ -372,7 +376,13 @@ function updateNPCList() {
     npcItem.innerHTML = `
       <div class="npc-name">${npc.name}</div>
       <div class="npc-activity">${npc.currentActivity}</div>
+      <div style="font-size: 10px; color: #888; margin-top: 3px;">好感度: ${npc.relationshipLevel}</div>
     `;
+
+    npcItem.addEventListener("click", () => {
+      selectNPC(npc.id);
+      startDialogue(npc);
+    });
 
     npcList.appendChild(npcItem);
   }
