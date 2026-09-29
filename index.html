@@ -1,125 +1,394 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>墨色書街 - 開放世界模擬系統</title>
-  <link rel="stylesheet" href="style.css">
+  <title>墨色書街 - 像素 RPG 探索版</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: #121212; color: #fff; font-family: monospace; display: flex; height: 100vh; overflow: hidden; }
+    .game-area { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    canvas { background-color: #1a1a1a; image-rendering: pixelated; }
+    .side-panel { width: 400px; background: #242424; border-left: 2px solid #333; display: flex; flex-direction: column; padding: 15px; gap: 15px; }
+    .panel-box { background: #1a1a1a; border: 2px solid #444; border-radius: 6px; padding: 12px; }
+    .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
+    button { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: monospace; }
+    button:hover { background: #444; }
+    .stat-bar-bg { background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 4px; }
+    .stat-bar-fill { background: #00ff88; height: 100%; width: 50%; transition: width 0.3s; }
+    .npc-item { background: #2a2a2a; border: 1px solid #444; padding: 8px; margin-bottom: 6px; border-radius: 4px; cursor: pointer; }
+    .npc-item.selected { border-color: #ffd700; background: #3a3a2a; }
+    #interiorView { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); color: #fff; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+    .controls-hint { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <!-- 頂部控制欄 -->
-    <div class="top-bar">
-      <button id="zoomInBtn" class="control-btn">🔍+</button>
-      <button id="zoomOutBtn" class="control-btn">🔍-</button>
-      <button id="fullscreenBtn" class="control-btn">⛶ 全螢幕</button>
-      <div class="title">墨色書街</div>
-      <div class="info-display">
-        <span id="timeDisplay">13:41</span> | 
-        <span id="weatherDisplay">晴天</span> | 
-        <span id="seasonDisplay">春季</span>
-      </div>
-    </div>
 
-    <!-- 主遊戲區域 -->
-    <div class="game-area">
-      <!-- 世界地圖 Canvas -->
-      <canvas id="gameCanvas"></canvas>
+  <div class="game-area">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="controls-hint">🎮 操作方式：[W/A/S/D] 或 方向鍵移動 | [E] 或 [Space] 對話/互動</div>
 
-      <!-- 左側面板 - NPC 列表 -->
-      <div class="left-panel">
-        <h3>📍 附近的角色</h3>
-        <div id="npcList" class="npc-list"></div>
-      </div>
-
-      <!-- 右側面板 - 任務與狀態 -->
-      <div class="right-panel">
-        <div class="tabs">
-          <button class="tab-btn active" data-tab="status">狀態</button>
-          <button class="tab-btn" data-tab="quest">任務</button>
-          <button class="tab-btn" data-tab="memory">記憶</button>
-        </div>
-        <div id="statusTab" class="tab-content active">
-          <div class="status-item">
-            <span>能量：</span>
-            <div class="status-bar">
-              <div class="status-fill" id="energyBar" style="width: 82%"></div>
-            </div>
-          </div>
-          <div class="status-item">
-            <span>飢餓：</span>
-            <div class="status-bar">
-              <div class="status-fill" id="hungerBar" style="width: 45%"></div>
-            </div>
-          </div>
-          <div class="status-item">
-            <span>社交：</span>
-            <div class="status-bar">
-              <div class="status-fill" id="socialBar" style="width: 68%"></div>
-            </div>
-          </div>
-          <div class="status-item">
-            <span>壓力：</span>
-            <div class="status-bar">
-              <div class="status-fill" id="stressBar" style="width: 22%"></div>
-            </div>
-          </div>
-          <div class="status-item">
-            <span>靈感：</span>
-            <div class="status-bar">
-              <div class="status-fill" id="inspirationBar" style="width: 76%"></div>
-            </div>
-          </div>
-          <hr>
-          <p id="moodDisplay"><strong>心情：</strong>平靜而專注</p>
-          <p id="activityDisplay"><strong>活動：</strong>接待顧客</p>
-          <p id="locationDisplay"><strong>位置：</strong>書店一樓</p>
-        </div>
-        <div id="questTab" class="tab-content">
-          <h4>📜 尋找母親的藏書</h4>
-          <p>林天墨得知母親生前收藏的一本絕版書可能藏在回聲森林附近的舊屋中。</p>
-          <div class="quest-progress">
-            <div class="progress-step completed">詢問王老闆</div>
-            <div class="progress-step">前往圖書館</div>
-            <div class="progress-step">探索回聲森林</div>
-            <div class="progress-step">找回藏書</div>
-          </div>
-        </div>
-        <div id="memoryTab" class="tab-content">
-          <div class="memory-item">
-            <strong>母親的最後一本書</strong>
-            <p>高中時母親送給天墨一本《挪威的森林》，在她去世前夜，她握著天墨的手說：『書裡有我想對你說的話』</p>
-            <span class="emotion-tag">懷念</span>
-          </div>
-          <div class="memory-item">
-            <strong>雨夜收養墨墨</strong>
-            <p>三年前在書店外的雨中救了一隻受傷的貓咪，後來收養了它，取名『墨墨』</p>
-            <span class="emotion-tag">溫暖</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 底部對話框 -->
-    <div class="dialogue-box">
-      <div id="dialogueContent" class="dialogue-content">
-        <p>歡迎來到墨色書街。點擊地圖上的 NPC 進行互動。</p>
-      </div>
-      <div class="dialogue-actions">
-        <button id="dialogueOption1" class="dialogue-btn" style="display:none;"></button>
-        <button id="dialogueOption2" class="dialogue-btn" style="display:none;"></button>
-        <button id="closeDialogue" class="dialogue-btn">關閉</button>
-      </div>
-    </div>
-
-    <!-- 建築內部檢視 (隱藏) -->
-    <div id="interiorView" class="interior-view" style="display:none;">
-      <button id="exitInterior" class="close-btn">✕ 離開</button>
-      <div id="interiorContent"></div>
+    <div id="interiorView">
+      <div id="interiorContent" style="text-align:center;"></div>
+      <button id="exitInterior" style="margin-top:20px;">離開建築</button>
     </div>
   </div>
 
-  <script src="world.js"></script>
-  <script src="script.js"></script>
+  <div class="side-panel">
+    <div class="panel-box">
+      <div class="btn-group">
+        <button id="zoomInBtn">🔍 放大</button>
+        <button id="zoomOutBtn">🔍 縮小</button>
+        <button id="fullscreenBtn">🖥️ 全螢幕</button>
+      </div>
+      <div>時間：<span id="timeDisplay">10:00</span></div>
+    </div>
+
+    <div class="panel-box">
+      <h3>NPC 與對話</h3>
+      <div id="npcList" style="margin-top:10px; max-height:120px; overflow-y:auto;"></div>
+      <hr style="border-color:#333; margin:10px 0;">
+      <div id="dialogueContent"><p>靠近 NPC 並按下 E 鍵進行互動。</p></div>
+      <div style="margin-top:10px;">
+        <button id="dialogueOption1" style="display:none;"></button>
+        <button id="dialogueOption2" style="display:none;"></button>
+        <button id="closeDialogue" style="float:right;">關閉</button>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <h3>角色狀態</h3>
+      <div style="margin-top:8px;">
+        <label>能量</label>
+        <div class="stat-bar-bg"><div id="energyBar" class="stat-bar-fill"></div></div>
+      </div>
+      <div style="margin-top:8px;">
+        <label>飢餓</label>
+        <div class="stat-bar-bg"><div id="hungerBar" class="stat-bar-fill" style="background:#ff9900;"></div></div>
+      </div>
+      <div style="margin-top:8px;">
+        <label>社交</label>
+        <div class="stat-bar-bg"><div id="socialBar" class="stat-bar-fill" style="background:#00ccff;"></div></div>
+      </div>
+      <div style="margin-top:8px;">
+        <label>壓力</label>
+        <div class="stat-bar-bg"><div id="stressBar" class="stat-bar-fill" style="background:#ff4444;"></div></div>
+      </div>
+      <div style="margin-top:8px;">
+        <label>靈感</label>
+        <div class="stat-bar-bg"><div id="inspirationBar" class="stat-bar-fill" style="background:#aa00ff;"></div></div>
+      </div>
+      <div style="margin-top:12px; font-size:12px; line-height:1.6;">
+        <div id="moodDisplay"><strong>心情：</strong>普通</div>
+        <div id="activityDisplay"><strong>活動：</strong>探索中</div>
+        <div id="locationDisplay"><strong>位置：</strong>墨色街道</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TILE_SIZE = 32;
+    const MAP_WIDTH = 30;
+    const MAP_HEIGHT = 20;
+    const WORLD_CONFIG = { currentTime: new Date() };
+
+    const PLAYER = {
+      name: "林浩然",
+      emoji: "🧍",
+      x: 15 * TILE_SIZE,
+      y: 12 * TILE_SIZE,
+      speed: 3.5,
+      width: 24,
+      height: 24,
+      energy: 80, hunger: 40, social: 60, stress: 20, inspiration: 90,
+      mood: "普通", currentActivity: "探索中", currentLocation: "墨色街道"
+    };
+
+    const NPCS = [
+      { id: "npc1", name: "李明", emoji: "👨‍🍳", x: 6 * TILE_SIZE, y: 8 * TILE_SIZE, currentActivity: "結帳中", relationshipLevel: 15, dialogue: "歡迎光臨！想找點什麼書？" },
+      { id: "npc2", name: "小雅", emoji: "👩‍🎓", x: 22 * TILE_SIZE, y: 8 * TILE_SIZE, currentActivity: "閱讀中", relationshipLevel: 10, dialogue: "這本古籍裡記載的故事太令人驚嘆了！" }
+    ];
+
+    const BUILDINGS = [
+      { id: "bookstore", name: "墨色書坊", x: 4 * TILE_SIZE, y: 3 * TILE_SIZE, width: 6 * TILE_SIZE, height: 4 * TILE_SIZE, color: "#7a4b2a", description: "充滿墨香與古籍的獨立書店。" },
+      { id: "cafe", name: "時光咖啡", x: 20 * TILE_SIZE, y: 3 * TILE_SIZE, width: 6 * TILE_SIZE, height: 4 * TILE_SIZE, color: "#5c3a21", description: "適合靜心寫作與享用特調咖啡的小館。" }
+    ];
+
+    const TREES = [
+      { x: 2 * TILE_SIZE, y: 2 * TILE_SIZE }, { x: 12 * TILE_SIZE, y: 2 * TILE_SIZE },
+      { x: 17 * TILE_SIZE, y: 2 * TILE_SIZE }, { x: 28 * TILE_SIZE, y: 2 * TILE_SIZE },
+      { x: 2 * TILE_SIZE, y: 15 * TILE_SIZE }, { x: 27 * TILE_SIZE, y: 15 * TILE_SIZE }
+    ];
+
+    const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+    let canvas, ctx;
+    let gameState = { zoom: 2.0, cameraX: 0, cameraY: 0, selectedNPC: null, inDialogue: false, currentDialogue: null };
+    const sprites = {};
+
+    function initGame() {
+      canvas = document.getElementById("gameCanvas");
+      ctx = canvas.getContext("2d");
+      generatePixelSprites();
+      resizeCanvas();
+      bindEventListeners();
+      requestAnimationFrame(gameLoop);
+      initUIUpdateLoop();
+    }
+
+    function generatePixelSprites() {
+      const createSprite = (w, h, drawFn) => {
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        const cx = c.getContext("2d");
+        cx.imageSmoothingEnabled = false;
+        drawFn(cx);
+        return c;
+      };
+
+      sprites.grass = createSprite(32, 32, (c) => {
+        c.fillStyle = "#3e700a"; c.fillRect(0, 0, 32, 32);
+        c.fillStyle = "#2d5206";
+        for (let i = 0; i < 16; i += 4) c.fillRect((i * 5) % 30, (i * 7) % 30, 3, 3);
+      });
+
+      sprites.road = createSprite(32, 32, (c) => {
+        c.fillStyle = "#666059"; c.fillRect(0, 0, 32, 32);
+        c.fillStyle = "#524d47"; c.fillRect(0, 0, 32, 2); c.fillRect(0, 0, 2, 32);
+      });
+
+      sprites.tree = createSprite(32, 32, (c) => {
+        c.fillStyle = "#5a3d28"; c.fillRect(12, 18, 8, 14);
+        c.fillStyle = "#1e5212"; c.fillRect(4, 2, 24, 20);
+        c.fillStyle = "#2a7319"; c.fillRect(6, 4, 20, 16);
+      });
+
+      sprites.player = createSprite(32, 32, (c) => {
+        c.fillStyle = "#f3a583"; c.fillRect(10, 4, 12, 10);
+        c.fillStyle = "#000"; c.fillRect(12, 7, 2, 3); c.fillRect(18, 7, 2, 3);
+        c.fillStyle = "#2c3e50"; c.fillRect(8, 14, 16, 12);
+        c.fillStyle = "#111"; c.fillRect(10, 26, 4, 6); c.fillRect(18, 26, 4, 6);
+      });
+    }
+
+    function resizeCanvas() {
+      const gameArea = document.querySelector(".game-area");
+      if (gameArea) {
+        canvas.width = gameArea.clientWidth;
+        canvas.height = gameArea.clientHeight;
+      }
+    }
+
+    function bindEventListeners() {
+      window.addEventListener("keydown", (e) => {
+        if (e.key in keys) keys[e.key] = true;
+        if (e.key === "e" || e.key === "E" || e.key === " ") {
+          checkInteraction();
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        if (e.key in keys) keys[e.key] = false;
+      });
+
+      document.getElementById("zoomInBtn")?.addEventListener("click", () => { gameState.zoom = Math.min(gameState.zoom + 0.2, 3); });
+      document.getElementById("zoomOutBtn")?.addEventListener("click", () => { gameState.zoom = Math.max(gameState.zoom - 0.2, 1); });
+      document.getElementById("fullscreenBtn")?.addEventListener("click", () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen().catch(err => console.warn(err));
+      });
+
+      window.addEventListener("resize", resizeCanvas);
+      document.getElementById("closeDialogue")?.addEventListener("click", closeDialogue);
+    }
+
+    function updatePlayerPosition() {
+      let dx = 0;
+      let dy = 0;
+
+      if (keys.w || keys.ArrowUp) dy -= PLAYER.speed;
+      if (keys.s || keys.ArrowDown) dy += PLAYER.speed;
+      if (keys.a || keys.ArrowLeft) dx -= PLAYER.speed;
+      if (keys.d || keys.ArrowRight) dx += PLAYER.speed;
+
+      if (dx !== 0 && dy !== 0) {
+        dx *= 0.7071;
+        dy *= 0.7071;
+      }
+
+      let nextX = PLAYER.x + dx;
+      let nextY = PLAYER.y + dy;
+      nextX = Math.max(0, Math.min(MAP_WIDTH * TILE_SIZE - 32, nextX));
+      nextY = Math.max(0, Math.min(MAP_HEIGHT * TILE_SIZE - 32, nextY));
+
+      let collideX = false;
+      let collideY = false;
+
+      for (let b of BUILDINGS) {
+        if (checkRectOverlap(nextX + 4, PLAYER.y + 8, PLAYER.width, PLAYER.height, b.x, b.y, b.width, b.height)) collideX = true;
+        if (checkRectOverlap(PLAYER.x + 4, nextY + 8, PLAYER.width, PLAYER.height, b.x, b.y, b.width, b.height)) collideY = true;
+      }
+
+      if (!collideX) PLAYER.x = nextX;
+      if (!collideY) PLAYER.y = nextY;
+
+      gameState.cameraX = PLAYER.x + 16 - canvas.width / (2 * gameState.zoom);
+      gameState.cameraY = PLAYER.y + 16 - canvas.height / (2 * gameState.zoom);
+    }
+
+    function checkRectOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
+      return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+    }
+
+    function checkInteraction() {
+      for (let npc of NPCS) {
+        let dist = Math.hypot((PLAYER.x - npc.x), (PLAYER.y - npc.y));
+        if (dist < 48) {
+          selectNPC(npc.id);
+          startDialogue(npc);
+          return;
+        }
+      }
+
+      for (let b of BUILDINGS) {
+        let dist = Math.hypot((PLAYER.x - (b.x + b.width/2)), (PLAYER.y - (b.y + b.height)));
+        if (dist < 50) {
+          enterBuilding(b);
+          return;
+        }
+      }
+    }
+
+    function gameLoop() {
+      updatePlayerPosition();
+
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = false;
+
+      ctx.save();
+      ctx.scale(gameState.zoom, gameState.zoom);
+      ctx.translate(-gameState.cameraX, -gameState.cameraY);
+
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        for (let y = 0; y < MAP_HEIGHT; y++) {
+          let sprite = (y >= 10 && y <= 13) ? sprites.road : sprites.grass;
+          ctx.drawImage(sprite, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+
+      for (let tree of TREES) {
+        ctx.drawImage(sprites.tree, tree.x, tree.y, TILE_SIZE, TILE_SIZE);
+      }
+
+      for (let b of BUILDINGS) {
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, b.y, b.width, b.height);
+        ctx.fillStyle = "#2c1d11";
+        ctx.strokeRect(b.x, b.y, b.width, b.height);
+        ctx.fillStyle = "#ffd700";
+        ctx.fillRect(b.x + b.width/2 - 12, b.y + b.height - 4, 24, 4);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 12px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(b.name, b.x + b.width / 2, b.y + b.height / 2);
+      }
+
+      for (let npc of NPCS) {
+        ctx.drawImage(sprites.player, npc.x, npc.y, TILE_SIZE, TILE_SIZE);
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(npc.x - 4, npc.y - 18, 40, 14);
+        ctx.fillStyle = "#ffd700";
+        ctx.font = "10px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(npc.name, npc.x + 16, npc.y - 8);
+      }
+
+      ctx.drawImage(sprites.player, PLAYER.x, PLAYER.y, TILE_SIZE, TILE_SIZE);
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(PLAYER.x, PLAYER.y, TILE_SIZE, TILE_SIZE);
+
+      ctx.fillStyle = "rgba(0,0,0,0.8)";
+      ctx.fillRect(PLAYER.x - 8, PLAYER.y - 20, 48, 14);
+      ctx.fillStyle = "#00ff88";
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(PLAYER.name, PLAYER.x + 16, PLAYER.y - 10);
+
+      ctx.restore();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function selectNPC(npcId) {
+      gameState.selectedNPC = npcId;
+      document.querySelectorAll(".npc-item").forEach(i => i.classList.remove("selected"));
+      document.querySelector(`[data-npc-id="${npcId}"]`)?.classList.add("selected");
+    }
+
+    function startDialogue(npc) {
+      gameState.inDialogue = true;
+      document.getElementById("dialogueContent").innerHTML = `<p><strong>${npc.emoji} ${npc.name}</strong>：${npc.dialogue}</p>`;
+      const opt1 = document.getElementById("dialogueOption1");
+      const opt2 = document.getElementById("dialogueOption2");
+      if (opt1) { opt1.textContent = "👋 打招呼"; opt1.style.display = "inline-block"; opt1.onclick = () => respondToDialogue("打招呼", npc); }
+      if (opt2) { opt2.textContent = "🛍️ 推薦書籍"; opt2.style.display = "inline-block"; opt2.onclick = () => respondToDialogue("推薦書籍", npc); }
+    }
+
+    function respondToDialogue(response, npc) {
+      document.getElementById("dialogueContent").innerHTML = `<p><strong>你</strong>：${response}</p><p><strong>${npc.emoji} ${npc.name}</strong>：很高興見到你！這條街上有很多有趣的事物，慢慢逛吧。</p>`;
+      document.getElementById("dialogueOption1").style.display = "none";
+      document.getElementById("dialogueOption2").style.display = "none";
+      npc.relationshipLevel = Math.min(npc.relationshipLevel + 3, 100);
+      updateNPCList();
+    }
+
+    function closeDialogue() {
+      gameState.inDialogue = false;
+      document.getElementById("dialogueContent").innerHTML = "<p>靠近 NPC 或建築物按 E 鍵互動。</p>";
+      document.getElementById("dialogueOption1").style.display = "none";
+      document.getElementById("dialogueOption2").style.display = "none";
+    }
+
+    function enterBuilding(b) {
+      document.getElementById("interiorContent").innerHTML = `<h2>${b.name}</h2><p style="margin-top:10px;">${b.description}</p>`;
+      document.getElementById("interiorView").style.display = "flex";
+      document.getElementById("exitInterior").onclick = () => { document.getElementById("interiorView").style.display = "none"; };
+    }
+
+    function initUIUpdateLoop() {
+      updateAllUI();
+      setInterval(updateAllUI, 1000);
+    }
+
+    function updateAllUI() {
+      const now = WORLD_CONFIG.currentTime;
+      document.getElementById("timeDisplay").textContent = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+      WORLD_CONFIG.currentTime.setSeconds(WORLD_CONFIG.currentTime.getSeconds() + 60);
+
+      updateNPCList();
+      document.getElementById("energyBar").style.width = PLAYER.energy + "%";
+      document.getElementById("hungerBar").style.width = PLAYER.hunger + "%";
+      document.getElementById("socialBar").style.width = PLAYER.social + "%";
+      document.getElementById("stressBar").style.width = PLAYER.stress + "%";
+      document.getElementById("inspirationBar").style.width = PLAYER.inspiration + "%";
+    }
+
+    function updateNPCList() {
+      const npcList = document.getElementById("npcList");
+      if (!npcList) return;
+      npcList.innerHTML = "";
+      for (let npc of NPCS) {
+        const item = document.createElement("div");
+        item.className = `npc-item ${gameState.selectedNPC === npc.id ? "selected" : ""}`;
+        item.dataset.npcId = npc.id;
+        item.innerHTML = `<div>${npc.emoji} ${npc.name} (${npc.currentActivity})</div><div style="font-size:10px; color:#aaa;">好感度: ${npc.relationshipLevel}</div>`;
+        item.onclick = () => { selectNPC(npc.id); startDialogue(npc); };
+        npcList.appendChild(item);
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", initGame);
+  </script>
 </body>
 </html>
