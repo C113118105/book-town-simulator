@@ -10,67 +10,121 @@ let gameState = {
   currentDialogue: null
 };
 
+// 離屏 Canvas 快取（儲存像素貼圖）
+const sprites = {};
+
 // 初始化遊戲
 function initGame() {
   canvas = document.getElementById("gameCanvas");
   ctx = canvas.getContext("2d");
 
-  // 設置 Canvas 大小
-  resizeCanvas();
+  // 生成像素貼圖（草地、樹木、角色等）
+  generatePixelSprites();
 
-  // 綁定事件監聽
+  resizeCanvas();
   bindEventListeners();
 
-  // 啟動遊戲循環
-  gameLoop();
+  requestAnimationFrame(gameLoop);
+  initUIUpdateLoop();
+}
 
-  // 更新 UI
-  updateUI();
+// 產生像素風格貼圖（免加載外部分頁圖片，純 Canvas 程式繪製）
+function generatePixelSprites() {
+  const createSprite = (width, height, drawFn) => {
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = width;
+    offCanvas.height = height;
+    const offCtx = offCanvas.getContext("2d");
+    offCtx.imageSmoothingEnabled = false;
+    drawFn(offCtx);
+    return offCanvas;
+  };
+
+  // 1. 草地地磚 (32x32)
+  sprites.grass = createSprite(32, 32, (c) => {
+    c.fillStyle = "#4a8505";
+    c.fillRect(0, 0, 32, 32);
+    c.fillStyle = "#3b6a04";
+    for (let i = 0; i < 16; i += 4) {
+      c.fillRect(i * 2, (i * 3) % 32, 2, 2);
+    }
+  });
+
+  // 2. 像素樹木 (32x32)
+  sprites.tree = createSprite(32, 32, (c) => {
+    // 樹幹
+    c.fillStyle = "#5a3d28";
+    c.fillRect(12, 20, 8, 12);
+    // 樹葉
+    c.fillStyle = "#2d681f";
+    c.fillRect(6, 4, 20, 18);
+    c.fillStyle = "#388427";
+    c.fillRect(8, 2, 16, 16);
+  });
+
+  // 3. 像素玩家/NPC (16x16 放大至 32x32)
+  sprites.player = createSprite(32, 32, (c) => {
+    // 頭部
+    c.fillStyle = "#f3a583";
+    c.fillRect(8, 4, 16, 12);
+    // 眼睛
+    c.fillStyle = "#000";
+    c.fillRect(12, 8, 2, 4);
+    c.fillRect(18, 8, 2, 4);
+    // 衣服
+    c.fillStyle = "#2c3e50";
+    c.fillRect(6, 16, 20, 12);
+  });
 }
 
 // 重新調整 Canvas 大小
 function resizeCanvas() {
   const gameArea = document.querySelector(".game-area");
-  canvas.width = gameArea.clientWidth - 520; // 扣除左右面板寬度
-  canvas.height = gameArea.clientHeight;
+  if (gameArea) {
+    canvas.width = gameArea.clientWidth - 520;
+    canvas.height = gameArea.clientHeight;
+  }
+}
+
+// 座標轉換輔助函式
+function getCanvasWorldPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / gameState.zoom + gameState.cameraX,
+    y: (e.clientY - rect.top) / gameState.zoom + gameState.cameraY
+  };
 }
 
 // 綁定事件監聽
 function bindEventListeners() {
-  // 縮放按鈕
-  document.getElementById("zoomInBtn").addEventListener("click", () => {
+  document.getElementById("zoomInBtn")?.addEventListener("click", () => {
     gameState.zoom = Math.min(gameState.zoom + 0.2, 3);
   });
 
-  document.getElementById("zoomOutBtn").addEventListener("click", () => {
+  document.getElementById("zoomOutBtn")?.addEventListener("click", () => {
     gameState.zoom = Math.max(gameState.zoom - 0.2, 0.5);
   });
 
-  // 全螢幕按鈕
-  document.getElementById("fullscreenBtn").addEventListener("click", () => {
+  document.getElementById("fullscreenBtn")?.addEventListener("click", () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.log("全螢幕請求被拒絕:", err);
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("全螢幕請求被拒絕:", err);
       });
     }
   });
 
-  // 標籤頁切換
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
-      switchTab(e.target.dataset.tab);
+      switchTab(e.currentTarget, e.currentTarget.dataset.tab);
     });
   });
 
-  // Canvas 點擊事件
   canvas.addEventListener("click", (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / gameState.zoom + gameState.cameraX;
-    const y = (e.clientY - rect.top) / gameState.zoom + gameState.cameraY;
+    const { x, y } = getCanvasWorldPos(e);
 
-    // 檢查是否點擊到 NPC
+    // 檢查 NPC 點擊
     for (let npc of NPCS) {
       if (
         x >= npc.x * 32 &&
@@ -84,7 +138,7 @@ function bindEventListeners() {
       }
     }
 
-    // 檢查是否點擊到建築
+    // 檢查建築點擊
     for (let building of BUILDINGS) {
       if (
         x >= building.x * 32 &&
@@ -98,25 +152,22 @@ function bindEventListeners() {
     }
   });
 
-  // 視窗大小改變時重新調整 Canvas
   window.addEventListener("resize", resizeCanvas);
-
-  // 關閉對話按鈕
-  document.getElementById("closeDialogue").addEventListener("click", closeDialogue);
+  document.getElementById("closeDialogue")?.addEventListener("click", closeDialogue);
 }
 
 // 遊戲主循環
 function gameLoop() {
-  // 清空畫布
   ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // 應用縮放與相機
+  // 關閉點陣圖平滑，保持清晰的像素邊緣 (Pixel-art crispness)
+  ctx.imageSmoothingEnabled = false;
+
   ctx.save();
   ctx.scale(gameState.zoom, gameState.zoom);
   ctx.translate(-gameState.cameraX, -gameState.cameraY);
 
-  // 繪製世界
   drawTerrain();
   drawTrees();
   drawBuildings();
@@ -125,152 +176,120 @@ function gameLoop() {
 
   ctx.restore();
 
-  // 遞迴調用
   requestAnimationFrame(gameLoop);
 }
 
-// 繪製地形
+// 繪製像素地形
 function drawTerrain() {
   for (let terrain of TERRAIN) {
-    ctx.fillStyle = terrain.color;
-    ctx.fillRect(
-      terrain.x * 32,
-      terrain.y * 32,
-      terrain.width * 32,
-      terrain.height * 32
-    );
+    for (let w = 0; w < terrain.width; w++) {
+      for (let h = 0; h < terrain.height; h++) {
+        ctx.drawImage(
+          sprites.grass,
+          (terrain.x + w) * 32,
+          (terrain.y + h) * 32,
+          32,
+          32
+        );
+      }
+    }
   }
 }
 
-// 繪製樹木
+// 繪製像素樹木
 function drawTrees() {
-  ctx.font = "24px Arial";
+  for (let tree of TREES) {
+    ctx.drawImage(sprites.tree, tree.x * 32, tree.y * 32, 32, 32);
+  }
+}
+
+// 繪製像素風格建築物
+function drawBuildings() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  
-  for (let tree of TREES) {
-    ctx.fillText("🌳", tree.x * 32 + 16, tree.y * 32 + 16);
-  }
-}
 
-// 繪製建築
-function drawBuildings() {
   for (let building of BUILDINGS) {
-    // 繪製建築背景
-    ctx.fillStyle = building.color;
-    ctx.fillRect(
-      building.x * 32,
-      building.y * 32,
-      building.width * 32,
-      building.height * 32
-    );
+    const bx = building.x * 32;
+    const by = building.y * 32;
+    const bw = building.width * 32;
+    const bh = building.height * 32;
 
-    // 繪製邊框
-    ctx.strokeStyle = "#4a4a4a";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(
-      building.x * 32,
-      building.y * 32,
-      building.width * 32,
-      building.height * 32
-    );
+    // 牆體像素顏色
+    ctx.fillStyle = building.color || "#8b5a2b";
+    ctx.fillRect(bx, by, bw, bh);
 
-    // 繪製建築 emoji 圖標
-    ctx.font = "bold 28px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#fff";
-    
-    const emoji = building.id === "bookstore" ? "📚" : (building.id === "cafe" ? "☕" : "📖");
-    ctx.fillText(
-      emoji,
-      building.x * 32 + (building.width * 32) / 2,
-      building.y * 32 + (building.height * 32) / 2 - 10
-    );
+    // 像素粗邊框
+    ctx.fillStyle = "#2c1d11";
+    ctx.fillRect(bx, by, bw, 4); // 上
+    ctx.fillRect(bx, by + bh - 4, bw, 4); // 下
+    ctx.fillRect(bx, by, 4, bh); // 左
+    ctx.fillRect(bx + bw - 4, by, 4, bh); // 右
 
-    // 繪製建築名稱
-    ctx.font = "bold 12px Arial";
+    // 門口像素繪製
+    ctx.fillStyle = "#3d2612";
+    ctx.fillRect(bx + bw / 2 - 8, by + bh - 16, 16, 16);
+
+    // 建築名稱標籤
+    ctx.font = "bold 12px monospace";
     ctx.fillStyle = "#ffd700";
-    ctx.fillText(
-      building.name,
-      building.x * 32 + (building.width * 32) / 2,
-      building.y * 32 + (building.height * 32) / 2 + 15
-    );
+    ctx.fillText(building.name, bx + bw / 2, by + bh / 2);
   }
 }
 
-// 繪製 NPC
+// 繪製像素 NPC
 function drawNPCs() {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
   for (let npc of NPCS) {
-    // 繪製 NPC 名稱背景
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    ctx.fillRect(npc.x * 32 - 5, npc.y * 32 - 20, 40, 16);
+    const nx = npc.x * 32;
+    const ny = npc.y * 32;
 
-    // NPC 名稱
+    // 繪製像素角色貼圖
+    ctx.drawImage(sprites.player, nx, ny, 32, 32);
+
+    // NPC 姓名標籤
+    ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+    ctx.fillRect(nx - 8, ny - 20, 48, 14);
+
     ctx.fillStyle = "#ffd700";
-    ctx.font = "bold 11px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(npc.name, npc.x * 32 + 16, npc.y * 32 - 12);
-
-    // 繪製 NPC emoji 圖標
-    ctx.font = "24px Arial";
-    ctx.fillText(npc.emoji, npc.x * 32 + 16, npc.y * 32 + 16);
-
-    // 當前活動標籤
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-    ctx.fillRect(npc.x * 32 - 10, npc.y * 32 + 22, 60, 14);
-    
-    ctx.fillStyle = "#a0a0a0";
-    ctx.font = "9px Arial";
-    ctx.fillText(npc.currentActivity, npc.x * 32 + 16, npc.y * 32 + 29);
+    ctx.font = "10px monospace";
+    ctx.fillText(npc.name, nx + 16, ny - 13);
   }
 }
 
-// 繪製玩家（主角）
+// 繪製像素主角
 function drawPlayer() {
-  // 玩家光環
+  const px = PLAYER.x * 32;
+  const py = PLAYER.y * 32;
+
+  // 像素角色貼圖
+  ctx.drawImage(sprites.player, px, py, 32, 32);
+
+  // 主角金黃色像素光環
   ctx.strokeStyle = "#ffd700";
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(PLAYER.x * 32 + 16, PLAYER.y * 32 + 16, 18, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.strokeRect(px - 2, py - 2, 36, 36);
 
-  // 玩家 emoji 圖標
-  ctx.font = "bold 28px Arial";
+  // 玩家名稱標籤
+  ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+  ctx.fillRect(px - 10, py - 20, 52, 14);
+
+  ctx.fillStyle = "#00ff88";
+  ctx.font = "bold 10px monospace";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(PLAYER.emoji, PLAYER.x * 32 + 16, PLAYER.y * 32 + 16);
-
-  // 玩家名稱
-  ctx.fillStyle = "#ffd700";
-  ctx.font = "bold 12px Arial";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(PLAYER.name, PLAYER.x * 32 + 16, PLAYER.y * 32 - 10);
-
-  // HP/狀態指示
-  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-  ctx.fillRect(PLAYER.x * 32 + 2, PLAYER.y * 32 + 24, 28, 6);
-  ctx.fillStyle = "#00ff88";
-  ctx.fillRect(PLAYER.x * 32 + 2, PLAYER.y * 32 + 24, (PLAYER.energy / 100) * 28, 6);
+  ctx.fillText(PLAYER.name, px + 16, py - 13);
 }
 
-// 選擇 NPC
 function selectNPC(npcId) {
   gameState.selectedNPC = npcId;
-
-  // 更新 NPC 列表視覺效果
-  document.querySelectorAll(".npc-item").forEach((item) => {
-    item.classList.remove("selected");
-  });
+  document.querySelectorAll(".npc-item").forEach((item) => item.classList.remove("selected"));
 
   const selectedItem = document.querySelector(`[data-npc-id="${npcId}"]`);
-  if (selectedItem) {
-    selectedItem.classList.add("selected");
-  }
+  selectedItem?.classList.add("selected");
 }
 
-// 開始對話
 function startDialogue(npc) {
   gameState.inDialogue = true;
   gameState.currentDialogue = npc;
@@ -279,20 +298,22 @@ function startDialogue(npc) {
     <p><strong>${npc.emoji} ${npc.name}</strong>：${npc.dialogue}</p>
   `;
 
-  // 顯示對話選項
   const opt1 = document.getElementById("dialogueOption1");
   const opt2 = document.getElementById("dialogueOption2");
 
-  opt1.textContent = "👋 打招呼";
-  opt1.style.display = "inline-block";
-  opt1.onclick = () => respondToDialogue("打招呼", npc);
+  if (opt1) {
+    opt1.textContent = "👋 打招呼";
+    opt1.style.display = "inline-block";
+    opt1.onclick = () => respondToDialogue("打招呼", npc);
+  }
 
-  opt2.textContent = "🛍️ 推薦書籍";
-  opt2.style.display = "inline-block";
-  opt2.onclick = () => respondToDialogue("推薦書籍", npc);
+  if (opt2) {
+    opt2.textContent = "🛍️ 推薦書籍";
+    opt2.style.display = "inline-block";
+    opt2.onclick = () => respondToDialogue("推薦書籍", npc);
+  }
 }
 
-// 回應對話
 function respondToDialogue(response, npc) {
   document.getElementById("dialogueContent").innerHTML = `
     <p><strong>你</strong>：${response}</p>
@@ -302,11 +323,10 @@ function respondToDialogue(response, npc) {
   document.getElementById("dialogueOption1").style.display = "none";
   document.getElementById("dialogueOption2").style.display = "none";
 
-  // 增加關係等級
   npc.relationshipLevel = Math.min(npc.relationshipLevel + 3, 100);
+  updateNPCList();
 }
 
-// 關閉對話
 function closeDialogue() {
   gameState.inDialogue = false;
   gameState.currentDialogue = null;
@@ -318,12 +338,10 @@ function closeDialogue() {
   document.getElementById("dialogueOption2").style.display = "none";
 }
 
-// 進入建築
 function enterBuilding(building) {
   const interiorView = document.getElementById("interiorView");
   const interiorContent = document.getElementById("interiorContent");
-
-  const buildingEmoji = building.id === "bookstore" ? "📚" : (building.id === "cafe" ? "☕" : "📖");
+  const buildingEmoji = building.id === "bookstore" ? "📚" : building.id === "cafe" ? "☕" : "📖";
 
   interiorContent.innerHTML = `
     <h2>${buildingEmoji} ${building.name}</h2>
@@ -332,69 +350,50 @@ function enterBuilding(building) {
   `;
 
   interiorView.style.display = "flex";
-
   document.getElementById("exitInterior").onclick = () => {
     interiorView.style.display = "none";
   };
 }
 
-// 切換標籤頁
-function switchTab(tabName) {
-  // 隱藏所有標籤內容
-  document.querySelectorAll(".tab-content").forEach((tab) => {
-    tab.classList.remove("active");
-  });
+function switchTab(clickedBtn, tabName) {
+  document.querySelectorAll(".tab-content").forEach((tab) => tab.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
 
-  // 移除所有按鈕的 active 類
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.classList.remove("active");
-  });
+  const tabElement = document.getElementById(`${tabName}Tab`);
+  if (tabElement) tabElement.classList.add("active");
 
-  // 顯示選中的標籤
-  const tabId = `${tabName}Tab`;
-  const tabElement = document.getElementById(tabId);
-  if (tabElement) {
-    tabElement.classList.add("active");
-  }
-
-  // 標記按鈕為 active
-  event.target.classList.add("active");
+  clickedBtn.classList.add("active");
 }
 
-// 更新 UI
-function updateUI() {
-  // 立即更新一次
+function initUIUpdateLoop() {
+  updateAllUI();
+  setInterval(updateAllUI, 1000);
+}
+
+function updateAllUI() {
   updateTimeAndWeather();
   updateNPCList();
   updatePlayerStatus();
-
-  // 每秒更新一次
-  setInterval(() => {
-    updateTimeAndWeather();
-    updateNPCList();
-    updatePlayerStatus();
-  }, 1000);
 }
 
-// 更新時間和天氣
 function updateTimeAndWeather() {
   const now = WORLD_CONFIG.currentTime;
   const hours = String(now.getHours()).padStart(2, "0");
   const minutes = String(now.getMinutes()).padStart(2, "0");
   document.getElementById("timeDisplay").textContent = `${hours}:${minutes}`;
 
-  // 每秒加 60 秒（時間加速）
   WORLD_CONFIG.currentTime.setSeconds(WORLD_CONFIG.currentTime.getSeconds() + 60);
 }
 
-// 更新 NPC 列表
 function updateNPCList() {
   const npcList = document.getElementById("npcList");
+  if (!npcList) return;
+
   npcList.innerHTML = "";
 
   for (let npc of NPCS) {
     const npcItem = document.createElement("div");
-    npcItem.className = "npc-item";
+    npcItem.className = `npc-item ${gameState.selectedNPC === npc.id ? "selected" : ""}`;
     npcItem.dataset.npcId = npc.id;
     npcItem.innerHTML = `
       <div class="npc-name">${npc.emoji} ${npc.name}</div>
@@ -411,7 +410,6 @@ function updateNPCList() {
   }
 }
 
-// 更新玩家狀態
 function updatePlayerStatus() {
   document.getElementById("energyBar").style.width = PLAYER.energy + "%";
   document.getElementById("hungerBar").style.width = PLAYER.hunger + "%";
@@ -419,13 +417,9 @@ function updatePlayerStatus() {
   document.getElementById("stressBar").style.width = PLAYER.stress + "%";
   document.getElementById("inspirationBar").style.width = PLAYER.inspiration + "%";
 
-  document.getElementById("moodDisplay").innerHTML =
-    `<strong>心情：</strong>${PLAYER.mood}`;
-  document.getElementById("activityDisplay").innerHTML =
-    `<strong>活動：</strong>${PLAYER.currentActivity}`;
-  document.getElementById("locationDisplay").innerHTML =
-    `<strong>位置：</strong>${PLAYER.currentLocation}`;
+  document.getElementById("moodDisplay").innerHTML = `<strong>心情：</strong>${PLAYER.mood}`;
+  document.getElementById("activityDisplay").innerHTML = `<strong>活動：</strong>${PLAYER.currentActivity}`;
+  document.getElementById("locationDisplay").innerHTML = `<strong>位置：</strong>${PLAYER.currentLocation}`;
 }
 
-// 啟動遊戲
 window.addEventListener("DOMContentLoaded", initGame);
