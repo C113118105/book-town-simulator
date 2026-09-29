@@ -108,7 +108,7 @@ function bindEventListeners() {
 // 遊戲主循環
 function gameLoop() {
   // 清空畫布
-  ctx.fillStyle = "#0a0a0a";
+  ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // 應用縮放與相機
@@ -144,23 +144,19 @@ function drawTerrain() {
 
 // 繪製樹木
 function drawTrees() {
+  ctx.font = "24px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  
   for (let tree of TREES) {
-    ctx.fillStyle = tree.color;
-    ctx.beginPath();
-    ctx.arc(tree.x * 32 + 16, tree.y * 32 + 16, 12, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 樹木陰影
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.arc(tree.x * 32 + 16, tree.y * 32 + 20, 10, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillText("🌳", tree.x * 32 + 16, tree.y * 32 + 16);
   }
 }
 
 // 繪製建築
 function drawBuildings() {
   for (let building of BUILDINGS) {
+    // 繪製建築背景
     ctx.fillStyle = building.color;
     ctx.fillRect(
       building.x * 32,
@@ -179,15 +175,26 @@ function drawBuildings() {
       building.height * 32
     );
 
-    // 繪製建築名稱
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 12px Arial";
+    // 繪製建築 emoji 圖標
+    ctx.font = "bold 28px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    
+    const emoji = building.id === "bookstore" ? "📚" : (building.id === "cafe" ? "☕" : "📖");
+    ctx.fillText(
+      emoji,
+      building.x * 32 + (building.width * 32) / 2,
+      building.y * 32 + (building.height * 32) / 2 - 10
+    );
+
+    // 繪製建築名稱
+    ctx.font = "bold 12px Arial";
+    ctx.fillStyle = "#ffd700";
     ctx.fillText(
       building.name,
       building.x * 32 + (building.width * 32) / 2,
-      building.y * 32 + (building.height * 32) / 2
+      building.y * 32 + (building.height * 32) / 2 + 15
     );
   }
 }
@@ -195,43 +202,57 @@ function drawBuildings() {
 // 繪製 NPC
 function drawNPCs() {
   for (let npc of NPCS) {
-    // 繪製 NPC 身體
-    ctx.fillStyle = npc.color;
-    ctx.fillRect(npc.x * 32 + 8, npc.y * 32 + 8, 16, 16);
+    // 繪製 NPC 名稱背景
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(npc.x * 32 - 5, npc.y * 32 - 20, 40, 16);
 
-    // NPC 名稱標籤
+    // NPC 名稱
     ctx.fillStyle = "#ffd700";
     ctx.font = "bold 11px Arial";
     ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(npc.name, npc.x * 32 + 16, npc.y * 32 - 2);
+    ctx.textBaseline = "middle";
+    ctx.fillText(npc.name, npc.x * 32 + 16, npc.y * 32 - 12);
 
-    // 當前活動
+    // 繪製 NPC emoji 圖標
+    ctx.font = "24px Arial";
+    ctx.fillText(npc.emoji, npc.x * 32 + 16, npc.y * 32 + 16);
+
+    // 當前活動標籤
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.fillRect(npc.x * 32 - 10, npc.y * 32 + 22, 60, 14);
+    
     ctx.fillStyle = "#a0a0a0";
     ctx.font = "9px Arial";
-    ctx.fillText(npc.currentActivity, npc.x * 32 + 16, npc.y * 32 - 12);
+    ctx.fillText(npc.currentActivity, npc.x * 32 + 16, npc.y * 32 + 29);
   }
 }
 
 // 繪製玩家（主角）
 function drawPlayer() {
-  // 玩家身體
-  ctx.fillStyle = PLAYER.color;
-  ctx.fillRect(PLAYER.x * 32 + 6, PLAYER.y * 32 + 6, 20, 20);
-
-  // 光環效果
+  // 玩家光環
   ctx.strokeStyle = "#ffd700";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(PLAYER.x * 32 + 16, PLAYER.y * 32 + 16, 14, 0, Math.PI * 2);
+  ctx.arc(PLAYER.x * 32 + 16, PLAYER.y * 32 + 16, 18, 0, Math.PI * 2);
   ctx.stroke();
+
+  // 玩家 emoji 圖標
+  ctx.font = "bold 28px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(PLAYER.emoji, PLAYER.x * 32 + 16, PLAYER.y * 32 + 16);
 
   // 玩家名稱
   ctx.fillStyle = "#ffd700";
   ctx.font = "bold 12px Arial";
-  ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  ctx.fillText(PLAYER.name, PLAYER.x * 32 + 16, PLAYER.y * 32 - 5);
+  ctx.fillText(PLAYER.name, PLAYER.x * 32 + 16, PLAYER.y * 32 - 10);
+
+  // HP/狀態指示
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  ctx.fillRect(PLAYER.x * 32 + 2, PLAYER.y * 32 + 24, 28, 6);
+  ctx.fillStyle = "#00ff88";
+  ctx.fillRect(PLAYER.x * 32 + 2, PLAYER.y * 32 + 24, (PLAYER.energy / 100) * 28, 6);
 }
 
 // 選擇 NPC
@@ -255,7 +276,7 @@ function startDialogue(npc) {
   gameState.currentDialogue = npc;
 
   document.getElementById("dialogueContent").innerHTML = `
-    <p><strong>${npc.name}</strong>：${npc.dialogue}</p>
+    <p><strong>${npc.emoji} ${npc.name}</strong>：${npc.dialogue}</p>
   `;
 
   // 顯示對話選項
@@ -275,7 +296,7 @@ function startDialogue(npc) {
 function respondToDialogue(response, npc) {
   document.getElementById("dialogueContent").innerHTML = `
     <p><strong>你</strong>：${response}</p>
-    <p><strong>${npc.name}</strong>：很高興見到你！希望下次還能看到你。</p>
+    <p><strong>${npc.emoji} ${npc.name}</strong>：很高興見到你！希望下次還能看到你。</p>
   `;
 
   document.getElementById("dialogueOption1").style.display = "none";
@@ -291,7 +312,7 @@ function closeDialogue() {
   gameState.currentDialogue = null;
 
   document.getElementById("dialogueContent").innerHTML =
-    "<p>歡迎來到墨色書街。點擊地圖上的 NPC 進行互動。</p>";
+    "<p>歡迎來到墨色書街。點擊地圖上的 NPC 或建築物進行互動。</p>";
 
   document.getElementById("dialogueOption1").style.display = "none";
   document.getElementById("dialogueOption2").style.display = "none";
@@ -302,10 +323,12 @@ function enterBuilding(building) {
   const interiorView = document.getElementById("interiorView");
   const interiorContent = document.getElementById("interiorContent");
 
+  const buildingEmoji = building.id === "bookstore" ? "📚" : (building.id === "cafe" ? "☕" : "📖");
+
   interiorContent.innerHTML = `
-    <h2>${building.name}</h2>
+    <h2>${buildingEmoji} ${building.name}</h2>
     <p>${building.description}</p>
-    <p style="margin-top: 20px; font-size: 14px;">（此功能開發中）</p>
+    <p style="margin-top: 20px; font-size: 14px; color: #888;">（此功能開發中）</p>
   `;
 
   interiorView.style.display = "flex";
@@ -374,7 +397,7 @@ function updateNPCList() {
     npcItem.className = "npc-item";
     npcItem.dataset.npcId = npc.id;
     npcItem.innerHTML = `
-      <div class="npc-name">${npc.name}</div>
+      <div class="npc-name">${npc.emoji} ${npc.name}</div>
       <div class="npc-activity">${npc.currentActivity}</div>
       <div style="font-size: 10px; color: #888; margin-top: 3px;">好感度: ${npc.relationshipLevel}</div>
     `;
