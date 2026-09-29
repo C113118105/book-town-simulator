@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>墨色書街 - 開放世界模擬系統</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 頂部控制欄 -->
+    <div class="top-bar">
+      <button id="zoomInBtn" class="control-btn">🔍+</button>
+      <button id="zoomOutBtn" class="control-btn">🔍-</button>
+      <button id="fullscreenBtn" class="control-btn">⛶ 全螢幕</button>
+      <div class="title">墨色書街</div>
+      <div class="info-display">
+        <span id="timeDisplay">13:41</span> | 
+        <span id="weatherDisplay">晴天</span> | 
+        <span id="seasonDisplay">春季</span>
+      </div>
+    </div>
+
+    <!-- 主遊戲區域 -->
+    <div class="game-area">
+      <!-- 世界地圖 Canvas -->
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- 左側面板 - NPC 列表 -->
+      <div class="left-panel">
+        <h3>📍 附近的角色</h3>
+        <div id="npcList" class="npc-list"></div>
+      </div>
+
+      <!-- 右側面板 - 任務與狀態 -->
+      <div class="right-panel">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="status">狀態</button>
+          <button class="tab-btn" data-tab="quest">任務</button>
+          <button class="tab-btn" data-tab="memory">記憶</button>
+        </div>
+        <div id="statusTab" class="tab-content active">
+          <div class="status-item">
+            <span>能量：</span>
+            <div class="status-bar">
+              <div class="status-fill" id="energyBar" style="width: 82%"></div>
+            </div>
+          </div>
+          <div class="status-item">
+            <span>飢餓：</span>
+            <div class="status-bar">
+              <div class="status-fill" id="hungerBar" style="width: 45%"></div>
+            </div>
+          </div>
+          <div class="status-item">
+            <span>社交：</span>
+            <div class="status-bar">
+              <div class="status-fill" id="socialBar" style="width: 68%"></div>
+            </div>
+          </div>
+          <div class="status-item">
+            <span>壓力：</span>
+            <div class="status-bar">
+              <div class="status-fill" id="stressBar" style="width: 22%"></div>
+            </div>
+          </div>
+          <div class="status-item">
+            <span>靈感：</span>
+            <div class="status-bar">
+              <div class="status-fill" id="inspirationBar" style="width: 76%"></div>
+            </div>
+          </div>
+          <hr>
+          <p id="moodDisplay"><strong>心情：</strong>平靜而專注</p>
+          <p id="activityDisplay"><strong>活動：</strong>接待顧客</p>
+          <p id="locationDisplay"><strong>位置：</strong>書店一樓</p>
+        </div>
+        <div id="questTab" class="tab-content">
+          <h4>📜 尋找母親的藏書</h4>
+          <p>林天墨得知母親生前收藏的一本絕版書可能藏在回聲森林附近的舊屋中。</p>
+          <div class="quest-progress">
+            <div class="progress-step completed">詢問王老闆</div>
+            <div class="progress-step">前往圖書館</div>
+            <div class="progress-step">探索回聲森林</div>
+            <div class="progress-step">找回藏書</div>
+          </div>
+        </div>
+        <div id="memoryTab" class="tab-content">
+          <div class="memory-item">
+            <strong>母親的最後一本書</strong>
+            <p>高中時母親送給天墨一本《挪威的森林》，在她去世前夜，她握著天墨的手說：『書裡有我想對你說的話』</p>
+            <span class="emotion-tag">懷念</span>
+          </div>
+          <div class="memory-item">
+            <strong>雨夜收養墨墨</strong>
+            <p>三年前在書店外的雨中救了一隻受傷的貓咪，後來收養了它，取名『墨墨』</p>
+            <span class="emotion-tag">溫暖</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部對話框 -->
+    <div class="dialogue-box">
+      <div id="dialogueContent" class="dialogue-content">
+        <p>歡迎來到墨色書街。點擊地圖上的 NPC 進行互動。</p>
+      </div>
+      <div class="dialogue-actions">
+        <button id="dialogueOption1" class="dialogue-btn" style="display:none;"></button>
+        <button id="dialogueOption2" class="dialogue-btn" style="display:none;"></button>
+        <button id="closeDialogue" class="dialogue-btn">關閉</button>
+      </div>
+    </div>
+
+    <!-- 建築內部檢視 (隱藏) -->
+    <div id="interiorView" class="interior-view" style="display:none;">
+      <button id="exitInterior" class="close-btn">✕ 離開</button>
+      <div id="interiorContent"></div>
+    </div>
+  </div>
+
+  <script src="world.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
