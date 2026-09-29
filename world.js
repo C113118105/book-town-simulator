@@ -9,6 +9,7 @@ const WORLD_CONFIG = {
   weather: "sunny",
   season: "spring"
 };
+window.WORLD_CONFIG = WORLD_CONFIG;
 
 // 地形數據
 const TERRAIN = [
@@ -18,6 +19,7 @@ const TERRAIN = [
   { type: "grass", x: 18, y: 18, width: 30, height: 16, color: "#66bb6a" },
   { type: "water", x: 2, y: 30, width: 8, height: 10, color: "#4fc3f7" }
 ];
+window.TERRAIN = TERRAIN;
 
 // 建築物數據
 const BUILDINGS = [
@@ -55,6 +57,7 @@ const BUILDINGS = [
     description: "陳詩雨常去的地方"
   }
 ];
+window.BUILDINGS = BUILDINGS;
 
 // 主角配置
 const PLAYER = {
@@ -76,6 +79,7 @@ const PLAYER = {
   currentLocation: "bookstore_first_floor",
   currentActivity: "接待顧客"
 };
+window.PLAYER = PLAYER;
 
 // NPC 配置
 const NPCS = [
@@ -116,6 +120,7 @@ const NPCS = [
     dialogue: "天墨老闆，新書到了！要我幫忙上架嗎？"
   }
 ];
+window.NPCS = NPCS;
 
 // 樹木與裝飾
 const TREES = [
@@ -131,13 +136,14 @@ const TREES = [
   { x: 48, y: 15, color: "#4caf50" },
   { x: 54, y: 8, color: "#4caf50" }
 ];
+window.TREES = TREES;
 
 // 任務配置
 const QUESTS = [
   {
     id: "quest_001",
     title: "尋找母親的藏書",
-    description: "林天墨得知��親生前收藏的一本絕版書可能藏在回聲森林附近的舊屋中。",
+    description: "林天墨得知母親生前收藏的一本絕版書可能藏在回聲森林附近的舊屋中。",
     progress: 25,
     steps: [
       "詢問王老闆",
@@ -148,6 +154,7 @@ const QUESTS = [
     completedSteps: 1
   }
 ];
+window.QUESTS = QUESTS;
 
 // 記憶配置
 const MEMORIES = [
@@ -173,6 +180,7 @@ const MEMORIES = [
     importance: 0.9
   }
 ];
+window.MEMORIES = MEMORIES;
 
 // 日常作息
 const DAILY_ROUTINE = [
@@ -184,16 +192,4 @@ const DAILY_ROUTINE = [
   { time: "18:00", location: "main_road", activity: "散步並前往咖啡館" },
   { time: "19:30", location: "bookstore_second_floor", activity: "寫作、閱讀與管理線上書評" }
 ];
-
-// 導出配置
-export {
-  WORLD_CONFIG,
-  TERRAIN,
-  BUILDINGS,
-  PLAYER,
-  NPCS,
-  TREES,
-  QUESTS,
-  MEMORIES,
-  DAILY_ROUTINE
-};
+window.DAILY_ROUTINE = DAILY_ROUTINE;
